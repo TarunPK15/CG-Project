@@ -179,9 +179,9 @@ def main():
     args = parse_args()
 
     if args.test:
-        from tests.test_core import run_all_tests
-        success = run_all_tests()
-        sys.exit(0 if success else 1)
+        from run_tests import run_all
+        run_all()
+        sys.exit(0)
 
     if args.list_datasets:
         list_available_datasets()

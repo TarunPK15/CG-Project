@@ -66,6 +66,7 @@ def run_all():
     print("\n" + "=" * 60)
     print("ALL 6 TEST SUITES PASSED SUCCESSFULLY!")
     print("=" * 60)
+    return True
 
 
 if __name__ == "__main__":

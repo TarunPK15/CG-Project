@@ -52,6 +52,7 @@ output/*.gif
 # Course report and presentation documents (kept locally)
 report/
 presentation/
+*.zip
 
 # Testing / Cache
 .pytest_cache/
