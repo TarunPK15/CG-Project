@@ -1,19 +1,20 @@
 /**
- * app.js - Client-Side Interactive Controller for 3D Volume Rendering Dashboard.
- * Handles smooth mouse orbit controls, progressive refinement, 2D slice scrubbing,
- * parameter adjustments, rich provenance presentation, and quantitative ground-truth comparison.
+ * app.js - Scientific Volume Rendering Client Controller
+ * Course: IS F311 Computer Graphics
+ * Handles mouse orbit navigation, progressive rendering, 2D cross-section scrubbing,
+ * parameter controls, and dataset inspection.
  */
 
 // Application State
 const state = {
   datasetKey: "brain_mri",
-  method: 0,        // 0: Levoy, 1: Drebin, 2: MIP
-  compositing: 1,   // 0: Back-to-Front, 1: Front-to-Back
+  method: 0,        // 0: Levoy (1988), 1: Drebin (1988), 2: MIP
+  compositing: 1,   // 0: Back-to-Front, 1: Front-to-Back (Early Termination)
   stepSize: 0.5,
   width: 320,
   height: 320,
   isInteracting: false,
-  
+
   // Camera Orbit
   camera: {
     azimuth: 45.0,
@@ -23,7 +24,7 @@ const state = {
     fov: 40.0,
   },
 
-  // Levoy Parameters
+  // Levoy (1988) Parameters
   levoy: {
     iso1: 0.32,
     thick1: 1.5,
@@ -35,7 +36,7 @@ const state = {
     color2: [0.95, 0.95, 0.90],
   },
 
-  // Drebin Parameters
+  // Drebin (1988) Parameters
   drebin: {
     smin: 0.15,
     sp1: 0.30,
@@ -58,7 +59,7 @@ const state = {
     shininess: 30.0,
   },
 
-  // Slices
+  // 2D Orthogonal Slice
   slice: {
     axis: "axial",
     pct: 0.5,
@@ -67,75 +68,49 @@ const state = {
   lastRenderDataUrl: "",
 };
 
-// DOM Elements
+// DOM References
 const renderView = document.getElementById("renderView");
 const sliceView = document.getElementById("sliceView");
 const canvasContainer = document.getElementById("canvasContainer");
-const loadingSpinner = document.getElementById("loadingSpinner");
+const loadingIndicator = document.getElementById("loadingIndicator");
 
 const datasetSelect = document.getElementById("datasetSelect");
 const compositingSelect = document.getElementById("compositingSelect");
-const datasetBadge = document.getElementById("datasetBadge");
-const fpsBadge = document.getElementById("fpsBadge");
-const resBadge = document.getElementById("resBadge");
+const statusVolume = document.getElementById("statusVolume");
+const statusFps = document.getElementById("statusFps");
+const statusDim = document.getElementById("statusDim");
 const camInfo = document.getElementById("camInfo");
-const datasetMeta = document.getElementById("datasetMeta");
 
-// Provenance DOM Elements & Modal
+// Modal Elements
 const btnDatasetInfo = document.getElementById("btnDatasetInfo");
 const datasetModal = document.getElementById("datasetModal");
 const btnModalClose = document.getElementById("btnModalClose");
-const provKeyBadge = document.getElementById("provKeyBadge");
-const provTitle = document.getElementById("provTitle");
-const provSubject = document.getElementById("provSubject");
-const provCreator = document.getElementById("provCreator");
-const provModality = document.getElementById("provModality");
-const provShape = document.getElementById("provShape");
-const provStructures = document.getElementById("provStructures");
-const provSignificance = document.getElementById("provSignificance");
-const provRecommended = document.getElementById("provRecommended");
+const modalDatasetKey = document.getElementById("modalDatasetKey");
+const modalTitle = document.getElementById("modalTitle");
+const modalSubject = document.getElementById("modalSubject");
+const modalCreator = document.getElementById("modalCreator");
+const modalModality = document.getElementById("modalModality");
+const modalShape = document.getElementById("modalShape");
+const modalStructures = document.getElementById("modalStructures");
+const modalSignificance = document.getElementById("modalSignificance");
+const modalRecommended = document.getElementById("modalRecommended");
 
-if (btnDatasetInfo && datasetModal) {
-  btnDatasetInfo.addEventListener("click", () => {
-    datasetModal.classList.remove("hidden");
-  });
-}
-
-if (btnModalClose && datasetModal) {
-  btnModalClose.addEventListener("click", () => {
-    datasetModal.classList.add("hidden");
-  });
-}
-
-if (datasetModal) {
-  datasetModal.addEventListener("click", (e) => {
-    if (e.target === datasetModal) {
-      datasetModal.classList.add("hidden");
-    }
-  });
-
-  window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && !datasetModal.classList.contains("hidden")) {
-      datasetModal.classList.add("hidden");
-    }
-  });
-}
-
+// Algorithm Selection
 const btnLevoy = document.getElementById("btnLevoy");
 const btnDrebin = document.getElementById("btnDrebin");
 const btnMIP = document.getElementById("btnMIP");
-const levoyCard = document.getElementById("levoyCard");
-const drebinCard = document.getElementById("drebinCard");
+const levoySection = document.getElementById("levoySection");
+const drebinSection = document.getElementById("drebinSection");
 
 const btnResetCamera = document.getElementById("btnResetCamera");
 
-// Slices
+// Slice Controls
 const sliceSlider = document.getElementById("sliceSlider");
 const slicePosText = document.getElementById("slicePosText");
-const sliceAxisBadge = document.getElementById("sliceAxisBadge");
+const sliceAxisLabel = document.getElementById("sliceAxisLabel");
 const sliceBtns = document.querySelectorAll(".btn-slice");
 
-// Sliders
+// Parameter Sliders
 const stepSlider = document.getElementById("stepSlider");
 const stepVal = document.getElementById("stepVal");
 
@@ -173,8 +148,7 @@ const ksVal = document.getElementById("ksVal");
 const shineSlider = document.getElementById("shineSlider");
 const shineVal = document.getElementById("shineVal");
 
-
-// Comprehensive Dataset Provenance & Preset Catalog
+// Dataset Catalog & Presets
 let datasetsCatalog = {};
 
 async function loadDatasetsCatalog() {
@@ -185,27 +159,29 @@ async function loadDatasetsCatalog() {
       data.datasets.forEach(ds => {
         datasetsCatalog[ds.key] = ds;
       });
-      updateProvenanceUI(state.datasetKey);
+      updateDatasetModalContent(state.datasetKey);
     }
   } catch (err) {
-    console.error("Error loading catalog:", err);
+    console.error("Failed to load datasets catalog:", err);
   }
 }
 
-function updateProvenanceUI(key) {
+function updateDatasetModalContent(key) {
   const meta = datasetsCatalog[key];
   if (!meta) return;
 
-  provKeyBadge.textContent = key.toUpperCase();
-  provTitle.textContent = meta.name || key;
-  provSubject.textContent = meta.subject || "Not specified";
-  provCreator.textContent = meta.creator || "Scientific Visualization Archive";
-  provModality.textContent = meta.modality || "3D Volumetric Acquisition";
-  provShape.textContent = `${meta.shape || ""} (${meta.spacing || "isotropic"})`;
-  provStructures.textContent = meta.structures || "Internal and surface structures.";
-  provSignificance.textContent = meta.significance || "Used for benchmarking direct volume rendering algorithms.";
-  provRecommended.textContent = meta.recommended || "Levoy (1988) or Drebin (1988)";
-  datasetMeta.textContent = `Shape: ${meta.shape || ""} | Voxel Matrix`;
+  if (modalDatasetKey) modalDatasetKey.textContent = key.toUpperCase();
+  if (modalTitle) modalTitle.textContent = meta.name || key;
+  if (modalSubject) modalSubject.textContent = meta.subject || "Not specified";
+  if (modalCreator) modalCreator.textContent = meta.creator || "Scientific Archive";
+  if (modalModality) modalModality.textContent = meta.modality || "Volumetric CT / MRI";
+  if (modalShape) modalShape.textContent = `${meta.shape || ""} (${meta.spacing || "isotropic"})`;
+  if (modalStructures) modalStructures.textContent = meta.structures || "Internal and surface structures.";
+  if (modalSignificance) modalSignificance.textContent = meta.significance || "Volume rendering evaluation.";
+  if (modalRecommended) modalRecommended.textContent = meta.recommended || "Levoy (1988) or Drebin (1988)";
+
+  if (statusVolume) statusVolume.textContent = meta.name || key;
+  if (statusDim) statusDim.textContent = meta.shape ? meta.shape.replace(/ voxels.*/, "") : "";
 }
 
 const DATASET_PRESETS = {
@@ -240,8 +216,7 @@ const DATASET_PRESETS = {
   },
 };
 
-
-// Request Throttle & Render Dispatcher
+// Rendering Dispatcher
 let isRendering = false;
 let pendingRender = false;
 
@@ -251,9 +226,8 @@ async function triggerRender(interactive = false) {
     return;
   }
   isRendering = true;
-  loadingSpinner.classList.add("active");
+  if (loadingIndicator) loadingIndicator.classList.add("active");
 
-  // Larger screen estate: 200x200 during interactive drag, 320x320 on release
   const width = interactive ? 200 : 320;
   const height = interactive ? 200 : 320;
   const step = interactive ? Math.max(state.stepSize, 0.8) : state.stepSize;
@@ -302,16 +276,15 @@ async function triggerRender(interactive = false) {
 
     if (res.ok) {
       const data = await res.json();
-      renderView.src = data.image;
+      if (renderView) renderView.src = data.image;
       state.lastRenderDataUrl = data.image;
-      fpsBadge.textContent = `${data.render_time_ms} ms (${data.fps} FPS)`;
-      resBadge.textContent = `Res: ${data.width}x${data.height}`;
+      if (statusFps) statusFps.textContent = `${data.render_time_ms} ms (${data.fps} fps)`;
     }
   } catch (err) {
-    console.error("Render error:", err);
+    console.error("Render dispatch error:", err);
   } finally {
     isRendering = false;
-    loadingSpinner.classList.remove("active");
+    if (loadingIndicator) loadingIndicator.classList.remove("active");
     if (pendingRender) {
       pendingRender = false;
       triggerRender(state.isInteracting);
@@ -319,39 +292,53 @@ async function triggerRender(interactive = false) {
   }
 }
 
-// Fetch 2D Orthogonal Slice
+// 2D Orthogonal Slice Retrieval
 async function fetchSlice() {
   try {
     const res = await fetch(`/api/slice?axis=${state.slice.axis}&index_pct=${state.slice.pct}`);
     if (res.ok) {
       const data = await res.json();
-      sliceView.src = data.image;
-      slicePosText.textContent = `${data.axis.toUpperCase()}: ${data.index} / ${data.max_index}`;
+      if (sliceView) sliceView.src = data.image;
+      if (slicePosText) slicePosText.textContent = `${data.index} / ${data.max_index}`;
     }
   } catch (err) {
     console.error("Slice fetch error:", err);
   }
 }
 
-// Update Camera Status Text
+// HUD Camera Coordinates
 function updateCameraInfo() {
-  camInfo.textContent = `Azimuth: ${Math.round(state.camera.azimuth)}° | Elevation: ${Math.round(state.camera.elevation)}° | Distance: ${state.camera.distance.toFixed(2)}`;
+  if (camInfo) {
+    camInfo.textContent = `Az: ${Math.round(state.camera.azimuth)}° | El: ${Math.round(state.camera.elevation)}° | Dist: ${state.camera.distance.toFixed(2)}`;
+  }
 }
 
-// Mouse Drag Orbit Controls
+// Mouse Navigation (Orbit & Zoom)
 let isDragging = false;
 let startX = 0;
 let startY = 0;
 let mouseButton = 0;
 
-canvasContainer.addEventListener("mousedown", (e) => {
-  e.preventDefault();
-  isDragging = true;
-  state.isInteracting = true;
-  startX = e.clientX;
-  startY = e.clientY;
-  mouseButton = e.button;
-});
+if (canvasContainer) {
+  canvasContainer.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    isDragging = true;
+    state.isInteracting = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    mouseButton = e.button;
+  });
+
+  canvasContainer.addEventListener("contextmenu", (e) => e.preventDefault());
+
+  canvasContainer.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const factor = e.deltaY > 0 ? 1.08 : 0.92;
+    state.camera.distance = Math.max(0.5, Math.min(6.0, state.camera.distance * factor));
+    updateCameraInfo();
+    triggerRender(false);
+  });
+}
 
 window.addEventListener("mousemove", (e) => {
   if (!isDragging) return;
@@ -362,7 +349,7 @@ window.addEventListener("mousemove", (e) => {
   startY = e.clientY;
 
   if (mouseButton === 0) {
-    // Left drag: Orbit rotation
+    // Left drag: Orbit
     state.camera.azimuth = (state.camera.azimuth + dx * 0.75) % 360.0;
     state.camera.elevation = Math.max(-85.0, Math.min(85.0, state.camera.elevation - dy * 0.75));
     updateCameraInfo();
@@ -379,108 +366,96 @@ window.addEventListener("mouseup", () => {
   if (isDragging) {
     isDragging = false;
     state.isInteracting = false;
-    // Progressive refinement high-res render on release
     triggerRender(false);
   }
 });
 
-// Prevent context menu on canvas for right-click zoom
-canvasContainer.addEventListener("contextmenu", (e) => e.preventDefault());
+if (btnResetCamera) {
+  btnResetCamera.addEventListener("click", () => {
+    state.camera.azimuth = 45.0;
+    state.camera.elevation = 25.0;
+    state.camera.distance = 2.5;
+    state.camera.target = [0.0, 0.0, 0.0];
+    updateCameraInfo();
+    triggerRender(false);
+  });
+}
 
-// Mouse Wheel Zoom
-canvasContainer.addEventListener("wheel", (e) => {
-  e.preventDefault();
-  const zoomFactor = e.deltaY > 0 ? 1.08 : 0.92;
-  state.camera.distance = Math.max(0.5, Math.min(6.0, state.camera.distance * zoomFactor));
-  updateCameraInfo();
-  triggerRender(false);
-});
-
-// Reset Camera Button
-btnResetCamera.addEventListener("click", () => {
-  state.camera.azimuth = 45.0;
-  state.camera.elevation = 25.0;
-  state.camera.distance = 2.5;
-  state.camera.target = [0.0, 0.0, 0.0];
-  updateCameraInfo();
-  triggerRender(false);
-});
-
-// Algorithm Switch
+// Algorithm Switching
 function setMethod(methodIdx) {
   state.method = methodIdx;
   [btnLevoy, btnDrebin, btnMIP].forEach((btn, idx) => {
-    btn.classList.toggle("active", idx === methodIdx);
+    if (btn) btn.classList.toggle("active", idx === methodIdx);
   });
 
   if (methodIdx === 0) {
-    levoyCard.classList.remove("hidden");
-    drebinCard.classList.add("hidden");
+    if (levoySection) levoySection.classList.remove("hidden");
+    if (drebinSection) drebinSection.classList.add("hidden");
   } else if (methodIdx === 1) {
-    levoyCard.classList.add("hidden");
-    drebinCard.classList.remove("hidden");
+    if (levoySection) levoySection.classList.add("hidden");
+    if (drebinSection) drebinSection.classList.remove("hidden");
   } else {
-    levoyCard.classList.add("hidden");
-    drebinCard.classList.add("hidden");
+    if (levoySection) levoySection.classList.add("hidden");
+    if (drebinSection) drebinSection.classList.add("hidden");
   }
   triggerRender(false);
 }
 
-btnLevoy.addEventListener("click", () => setMethod(0));
-btnDrebin.addEventListener("click", () => setMethod(1));
-btnMIP.addEventListener("click", () => setMethod(2));
+if (btnLevoy) btnLevoy.addEventListener("click", () => setMethod(0));
+if (btnDrebin) btnDrebin.addEventListener("click", () => setMethod(1));
+if (btnMIP) btnMIP.addEventListener("click", () => setMethod(2));
 
-// Dataset Selection
-datasetSelect.addEventListener("change", async (e) => {
-  const key = e.target.value;
-  state.datasetKey = key;
-  datasetBadge.textContent = `Dataset: ${e.target.options[e.target.selectedIndex].text}`;
-  updateProvenanceUI(key);
+// Dataset Selector
+if (datasetSelect) {
+  datasetSelect.addEventListener("change", async (e) => {
+    const key = e.target.value;
+    state.datasetKey = key;
+    updateDatasetModalContent(key);
 
-  // Apply preset if exists
-  if (DATASET_PRESETS[key]) {
-    const p = DATASET_PRESETS[key];
-    if (p.method !== undefined) setMethod(p.method);
-    if (p.iso1 !== undefined) {
-      state.levoy.iso1 = p.iso1;
-      iso1Slider.value = p.iso1;
-      iso1Val.textContent = p.iso1;
+    if (DATASET_PRESETS[key]) {
+      const p = DATASET_PRESETS[key];
+      if (p.method !== undefined) setMethod(p.method);
+      if (p.iso1 !== undefined) {
+        state.levoy.iso1 = p.iso1;
+        if (iso1Slider) iso1Slider.value = p.iso1;
+        if (iso1Val) iso1Val.textContent = p.iso1;
+      }
     }
-  }
 
-  // Load dataset into server
-  try {
-    const res = await fetch("/api/load_dataset", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: key }),
-    });
-    if (res.ok) {
-      await fetchSlice();
-      await triggerRender(false);
+    try {
+      const res = await fetch("/api/load_dataset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: key }),
+      });
+      if (res.ok) {
+        await fetchSlice();
+        await triggerRender(false);
+      }
+    } catch (err) {
+      console.error("Dataset load error:", err);
     }
-  } catch (err) {
-    console.error("Dataset load error:", err);
-  }
-});
+  });
+}
 
-// Compositing Selection
-compositingSelect.addEventListener("change", (e) => {
-  state.compositing = parseInt(e.target.value, 10);
-  triggerRender(false);
-});
+// Compositing Selector
+if (compositingSelect) {
+  compositingSelect.addEventListener("change", (e) => {
+    state.compositing = parseInt(e.target.value, 10);
+    triggerRender(false);
+  });
+}
 
-// Slider Event Listeners
+// Slider Binding Helper
 function bindSlider(slider, display, onChange) {
+  if (!slider) return;
   slider.addEventListener("input", (e) => {
     const val = parseFloat(e.target.value);
-    display.textContent = val;
+    if (display) display.textContent = val;
     onChange(val);
     triggerRender(true);
   });
-  slider.addEventListener("change", () => {
-    triggerRender(false);
-  });
+  slider.addEventListener("change", () => triggerRender(false));
 }
 
 bindSlider(stepSlider, stepVal, (v) => state.stepSize = v);
@@ -499,31 +474,37 @@ bindSlider(kdSlider, kdVal, (v) => state.lighting.kd = v);
 bindSlider(ksSlider, ksVal, (v) => state.lighting.ks = v);
 bindSlider(shineSlider, shineVal, (v) => state.lighting.shininess = v);
 
-// Clipping & Cutaways
-clipPlaneToggle.addEventListener("change", (e) => {
-  state.clipping.enabled = e.target.checked;
-  clipPlaneGroup.style.display = e.target.checked ? "block" : "none";
-  triggerRender(false);
-});
+// Cutaway & Clipping Toggles
+if (clipPlaneToggle) {
+  clipPlaneToggle.addEventListener("change", (e) => {
+    state.clipping.enabled = e.target.checked;
+    if (clipPlaneGroup) clipPlaneGroup.style.display = e.target.checked ? "block" : "none";
+    triggerRender(false);
+  });
+}
 
-clipDSlider.addEventListener("input", (e) => {
-  const v = parseFloat(e.target.value);
-  clipDVal.textContent = v;
-  state.clipping.depth = v;
-  triggerRender(true);
-});
-clipDSlider.addEventListener("change", () => triggerRender(false));
+if (clipDSlider) {
+  clipDSlider.addEventListener("input", (e) => {
+    const v = parseFloat(e.target.value);
+    if (clipDVal) clipDVal.textContent = v;
+    state.clipping.depth = v;
+    triggerRender(true);
+  });
+  clipDSlider.addEventListener("change", () => triggerRender(false));
+}
 
-wedgeCutToggle.addEventListener("change", (e) => {
-  state.clipping.wedgeCut = e.target.checked;
-  triggerRender(false);
-});
+if (wedgeCutToggle) {
+  wedgeCutToggle.addEventListener("change", (e) => {
+    state.clipping.wedgeCut = e.target.checked;
+    triggerRender(false);
+  });
+}
 
-// Slice Viewer Controls
-const AXIS_TITLES = {
-  axial: "AXIAL PLANE (Superior-Inferior / Z-axis)",
-  coronal: "CORONAL PLANE (Anterior-Posterior / Y-axis)",
-  sagittal: "SAGITTAL PLANE (Left-Right / X-axis)",
+// Slice Navigation
+const AXIS_MAP = {
+  axial: "Axial (Z-axis)",
+  coronal: "Coronal (Y-axis)",
+  sagittal: "Sagittal (X-axis)",
 };
 
 sliceBtns.forEach((btn) => {
@@ -531,23 +512,21 @@ sliceBtns.forEach((btn) => {
     sliceBtns.forEach((b) => b.classList.remove("active"));
     btn.classList.add("active");
     state.slice.axis = btn.dataset.axis;
-    if (sliceAxisBadge) {
-      sliceAxisBadge.textContent = AXIS_TITLES[btn.dataset.axis] || btn.dataset.axis.toUpperCase();
+    if (sliceAxisLabel) {
+      sliceAxisLabel.textContent = AXIS_MAP[btn.dataset.axis] || btn.dataset.axis;
     }
     fetchSlice();
   });
 });
 
-sliceSlider.addEventListener("input", (e) => {
-  state.slice.pct = parseFloat(e.target.value) / 100.0;
-  fetchSlice();
-});
+if (sliceSlider) {
+  sliceSlider.addEventListener("input", (e) => {
+    state.slice.pct = parseFloat(e.target.value) / 100.0;
+    fetchSlice();
+  });
+}
 
-// Dataset Info Modal Popup Handlers
-const btnDatasetInfo = document.getElementById("btnDatasetInfo");
-const datasetModal = document.getElementById("datasetModal");
-const btnModalClose = document.getElementById("btnModalClose");
-
+// Dataset Info Modal Logic
 if (btnDatasetInfo && datasetModal) {
   btnDatasetInfo.addEventListener("click", () => {
     datasetModal.classList.remove("hidden");
@@ -574,7 +553,7 @@ if (datasetModal) {
   });
 }
 
-// Initial Bootstrap on Load
+// Bootstrap Initialization
 window.addEventListener("DOMContentLoaded", async () => {
   updateCameraInfo();
   await loadDatasetsCatalog();
