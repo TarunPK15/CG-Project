@@ -49,6 +49,10 @@ output/*.jpeg
 output/*.gif
 !output/.gitkeep
 
+# Course report and presentation documents (kept locally)
+report/
+presentation/
+
 # Testing / Cache
 .pytest_cache/
 .coverage

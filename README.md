@@ -23,7 +23,12 @@ the engine achieves:
 - **Dual Compositing Pipelines**:
   - **Back-to-Front Compositing** ($C_{\text{out}} = C_s \alpha_s + (1 - \alpha_s) C_{\text{in}}$): Strictly follows the IS F311 course project proposal specification.
   - **Front-to-Back Compositing**: Traces rays from the eye into the volume with Early Ray Termination ($\alpha \ge 0.99$) for massive computational speedups.
-- **Modern Interactive Web Dashboard (FastAPI + HTML5 / Canvas)**: Replaced the slow, frozen Tkinter desktop GUI with a high-performance web dashboard featuring smooth mouse orbit navigation, progressive resolution refinement (instant ~30 ms interaction during mouse drag, high-res $320 \times 320$ on release), and full-width 2D multi-planar orthogonal slicing (Axial, Coronal, Sagittal).
+- **Modern CAD / Scientific Workstation Interface (FastAPI + HTML5 Canvas)**: Replaced the slow, frozen Tkinter desktop GUI with a high-performance, unslopified scientific workstation dashboard featuring:
+  - **Single-Screen 100vh Geometry**: Zero window scrolling required; tool panel, 3D viewport, and 2D orthogonal slice viewer all fit simultaneously on screen.
+  - **Container-Fitting Viewport Scaling**: The 3D render expands to fill the entire container height ($600\text{--}700\text{px}$) and maintains steady frame dimensions during progressive refinement without shrinking during mouse rotation.
+  - **Integrated HUD & Anatomical Presets**: Live camera coordinates (Azimuth, Elevation, Distance) with instant one-click orthogonal realignment buttons (`Front`, `Side`, `Top`, `Reset`).
+  - **DICOM-Style Metadata Inspector**: Dataset provenance and acquisition parameters housed in a clean property inspector dialog.
+  - **2D Multi-Planar Orthogonal Slicing**: Simultaneous Axial, Coronal, and Sagittal cross-sectional slicing with real-time scrub slider.
 - **Universal Unit Cube Normalization**: Eliminates the camera-inside-volume bug by automatically centering any dataset at $(0, 0, 0)$ and normalizing bounds into $[-1, 1]^3$, ensuring camera distances work uniformly across any dataset resolution.
 - **Real Clinical & Benchmark Datasets with Provenance**: Features real clinical Human Brain T1 MRI, Bonsai Tree Micro-CT ($256^3$), Industrial Engine Block CT ($256 \times 256 \times 128$), CT Angiogram (AVM), and Brain FLAIR scans, accompanied by complete scientific provenance metadata (what was scanned, when, by whom, scanner modality, and voxel spacing).
 
@@ -125,9 +130,9 @@ project/
 ├── web/                                # Modern High-Performance Web Dashboard (FastAPI + HTML5)
 │   ├── server.py                       # FastAPI REST API (raycast, 2D slice, provenance endpoints)
 │   └── static/                         # Frontend client files
-│       ├── index.html                  # Responsive dashboard layout (Hero 3D view + Provenance + Slices)
-│       ├── style.css                   # Glassmorphism dark theme & responsive layout styling
-│       └── app.js                      # Mouse orbit controls, progressive refinement, slice scrubber
+│       ├── index.html                  # Single-screen 100vh workstation layout (3D viewport, HUD, slices)
+│       ├── style.css                   # Professional CAD/scientific dark theme (VS Code / Blender / Slicer)
+│       └── app.js                      # Mouse orbit navigation, progressive refinement, slice scrubbers
 │
 ├── data/                               # Local cache for real 3D volumetric datasets
 │   ├── brain_t1.nii.gz                 # Clinical Human Brain T1 MRI (140 x 160 x 124)
@@ -222,12 +227,14 @@ project/
   - `GET /api/slice`: Extracts 2D orthogonal slices (Axial, Coronal, Sagittal) with interactive scrubbing.
 
 ### `web/static/` (`index.html`, `style.css`, `app.js`)
-- **Purpose**: Client-side interactive dashboard.
+- **Purpose**: Client-side scientific workstation dashboard.
 - **Capabilities**:
-  - Hero 3D raycast viewport with mouse orbit controls (Left drag: orbit, Right drag/wheel: zoom).
-  - Progressive resolution refinement (fast preview during drag, crisp $320 \times 320$ on release).
-  - Dynamic dataset provenance panel updating metadata on the fly.
-  - Full-width 2D orthogonal slice viewer with live slider scrubbing.
+  - **Strict 100vh Single-Screen Layout**: Zero window scrolling; responsive tool inspector, 3D viewport, and 2D cross-sections visible simultaneously.
+  - **Container-Fitting Sizing**: Raycast output fills the full available viewport height ($600\text{--}700\text{px}$) and never shrinks on interactive mouse drag.
+  - **Smooth Orbit Navigation**: Left-click drag to orbit, right-click drag or mouse wheel to zoom, with progressive resolution refinement.
+  - **Anatomical Presets**: One-click orientation buttons (`Front`, `Side`, `Top`, `Reset`) for coronal, sagittal, and axial alignment.
+  - **Technical Metadata Inspector**: Clean modal dialog displaying dataset acquisition parameters, subject info, and literature significance.
+  - **2D Multi-Planar Orthogonal Slicing**: Live Axial (Z), Coronal (Y), and Sagittal (X) slice inspection with scrub slider.
 
 ---
 
