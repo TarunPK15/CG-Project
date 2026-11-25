@@ -190,7 +190,12 @@
         <div class="viewport-hud-top">
           <div class="hud-item" id="camInfo">Az: 45&deg; | El: 25&deg; | Dist: 2.50</div>
           <div class="hud-item hud-hint">Orbit: L-Click Drag &bull; Zoom: R-Click Drag / Wheel</div>
-          <button class="tool-btn-sm" id="btnResetCamera">Reset Camera</button>
+          <div class="cam-preset-buttons">
+            <button class="tool-btn-sm" id="btnViewFront" title="Front View (Coronal)">Front</button>
+            <button class="tool-btn-sm" id="btnViewSide" title="Side View (Sagittal)">Side</button>
+            <button class="tool-btn-sm" id="btnViewTop" title="Top View (Axial)">Top</button>
+            <button class="tool-btn-sm" id="btnResetCamera" title="Reset to Default Perspective">Reset</button>
+          </div>
         </div>
 
         <div class="canvas-box" id="canvasContainer">

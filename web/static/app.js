@@ -103,6 +103,9 @@ const levoySection = document.getElementById("levoySection");
 const drebinSection = document.getElementById("drebinSection");
 
 const btnResetCamera = document.getElementById("btnResetCamera");
+const btnViewFront = document.getElementById("btnViewFront");
+const btnViewSide = document.getElementById("btnViewSide");
+const btnViewTop = document.getElementById("btnViewTop");
 
 // Slice Controls
 const sliceSlider = document.getElementById("sliceSlider");
@@ -376,6 +379,36 @@ if (btnResetCamera) {
     state.camera.elevation = 25.0;
     state.camera.distance = 2.5;
     state.camera.target = [0.0, 0.0, 0.0];
+    updateCameraInfo();
+    triggerRender(false);
+  });
+}
+
+if (btnViewFront) {
+  btnViewFront.addEventListener("click", () => {
+    state.camera.azimuth = 0.0;
+    state.camera.elevation = 0.0;
+    state.camera.distance = 2.5;
+    updateCameraInfo();
+    triggerRender(false);
+  });
+}
+
+if (btnViewSide) {
+  btnViewSide.addEventListener("click", () => {
+    state.camera.azimuth = 90.0;
+    state.camera.elevation = 0.0;
+    state.camera.distance = 2.5;
+    updateCameraInfo();
+    triggerRender(false);
+  });
+}
+
+if (btnViewTop) {
+  btnViewTop.addEventListener("click", () => {
+    state.camera.azimuth = 0.0;
+    state.camera.elevation = 89.9;
+    state.camera.distance = 2.5;
     updateCameraInfo();
     triggerRender(false);
   });
