@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Direct Volume Rendering & Surface Display Engine</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Header Bar -->
+  <header class="navbar">
+    <div class="brand">
+      <div class="brand-badge">IS F311</div>
+      <div class="title-group">
+        <h1>Direct Volume Rendering & Surface Display</h1>
+        <span class="subtitle">Marc Levoy (1988) & Robert Drebin et al. (1988)</span>
+      </div>
+    </div>
+    <div class="status-bar">
+      <span class="badge" id="datasetBadge">Brain T1 MRI</span>
+      <span class="badge badge-accent" id="fpsBadge">-- ms</span>
+      <span class="badge badge-outline" id="resBadge">320x320</span>
+    </div>
+  </header>
+
+  <!-- Main Single-Screen Dashboard -->
+  <main class="dashboard">
+    <!-- Left Sidebar: Controls -->
+    <aside class="sidebar">
+      <!-- Volume Dataset Selection -->
+      <section class="card">
+        <div class="card-header-row">
+          <h3 class="card-title">Volume Dataset</h3>
+          <button class="btn btn-secondary btn-xs" id="btnDatasetInfo" title="View Scientific Provenance & Acquisition Details">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            Info
+          </button>
+        </div>
+        <div class="form-group">
+          <select id="datasetSelect" class="select-input">
+            <option value="brain_mri" selected>Clinical Brain MRI (T1-weighted)</option>
+            <option value="bonsai">Bonsai Tree CT (OpenSciVis / Roettger)</option>
+            <option value="engine">Engine Block Industrial CT (GE)</option>
+            <option value="avm">Clinical CT Angiogram (AVM)</option>
+            <option value="brain_flair">Clinical Brain MRI (FLAIR)</option>
+            <option value="marschner_lobb">Marschner-Lobb Benchmark (1994)</option>
+          </select>
+        </div>
+        <div class="dataset-meta" id="datasetMeta">
+          Shape: 140 x 160 x 124 | Real Clinical Scan
+        </div>
+      </section>
+
+      <!-- Rendering Algorithm Selector -->
+      <section class="card">
+        <h3 class="card-title">Algorithm & Compositing</h3>
+        <div class="button-group">
+          <button class="btn btn-toggle active" data-method="0" id="btnLevoy">Levoy (1988)<br><small>Isosurfaces</small></button>
+          <button class="btn btn-toggle" data-method="1" id="btnDrebin">Drebin (1988)<br><small>Material Mix</small></button>
+          <button class="btn btn-toggle" data-method="2" id="btnMIP">MIP<br><small>Max Intensity</small></button>
+        </div>
+        <div class="form-group mt-1">
+          <label for="compositingSelect">Ray Compositing:</label>
+          <select id="compositingSelect" class="select-input">
+            <option value="1" selected>Front-to-Back (Early Termination)</option>
+            <option value="0">Back-to-Front (Proposal Specification)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <div class="slider-header">
+            <label>Sampling Step Size:</label>
+            <span id="stepVal">0.5</span>
+          </div>
+          <input type="range" id="stepSlider" min="0.2" max="2.0" step="0.1" value="0.5">
+        </div>
+      </section>
+
+      <!-- Levoy Parameters (Visible when Levoy selected) -->
+      <section class="card" id="levoyCard">
+        <h3 class="card-title">Marc Levoy (1988) Parameters</h3>
+        <div class="surface-box">
+          <div class="surface-title">Surface 1 (Soft Tissue / Outer)</div>
+          <div class="form-group">
+            <div class="slider-header"><label>Isovalue (f_v1):</label><span id="iso1Val">0.32</span></div>
+            <input type="range" id="iso1Slider" min="0.05" max="0.95" step="0.01" value="0.32">
+          </div>
+          <div class="form-group">
+            <div class="slider-header"><label>Thickness (r1 voxels):</label><span id="thick1Val">1.5</span></div>
+            <input type="range" id="thick1Slider" min="0.5" max="5.0" step="0.1" value="1.5">
+          </div>
+          <div class="form-group">
+            <div class="slider-header"><label>Max Opacity (alpha_v1):</label><span id="alpha1Val">0.75</span></div>
+            <input type="range" id="alpha1Slider" min="0.1" max="1.0" step="0.05" value="0.75">
+          </div>
+        </div>
+
+        <div class="surface-box mt-1">
+          <div class="surface-title">Surface 2 (Bone / Dense Core)</div>
+          <div class="form-group">
+            <div class="slider-header"><label>Isovalue (f_v2):</label><span id="iso2Val">0.60</span></div>
+            <input type="range" id="iso2Slider" min="0.1" max="0.99" step="0.01" value="0.60">
+          </div>
+          <div class="form-group">
+            <div class="slider-header"><label>Thickness (r2 voxels):</label><span id="thick2Val">2.0</span></div>
+            <input type="range" id="thick2Slider" min="0.5" max="5.0" step="0.1" value="2.0">
+          </div>
+          <div class="form-group">
+            <div class="slider-header"><label>Max Opacity (alpha_v2):</label><span id="alpha2Val">0.90</span></div>
+            <input type="range" id="alpha2Slider" min="0.1" max="1.0" step="0.05" value="0.90">
+          </div>
+        </div>
+      </section>
+
+      <!-- Drebin Parameters (Visible when Drebin selected) -->
+      <section class="card hidden" id="drebinCard">
+        <h3 class="card-title">Robert Drebin (1988) Classification</h3>
+        <div class="form-group">
+          <div class="slider-header"><label>Soft Tissue Transition:</label><span id="drebinMinVal">0.15</span></div>
+          <input type="range" id="drebinMinSlider" min="0.05" max="0.5" step="0.01" value="0.15">
+        </div>
+        <div class="form-group">
+          <div class="slider-header"><label>Tissue-to-Bone Boundary:</label><span id="drebinPeakVal">0.45</span></div>
+          <input type="range" id="drebinPeakSlider" min="0.2" max="0.7" step="0.01" value="0.45">
+        </div>
+        <div class="form-group">
+          <div class="slider-header"><label>Dense Bone Peak:</label><span id="drebinMaxVal">0.85</span></div>
+          <input type="range" id="drebinMaxSlider" min="0.5" max="0.98" step="0.01" value="0.85">
+        </div>
+      </section>
+
+      <!-- Cutaways & Clipping -->
+      <section class="card">
+        <h3 class="card-title">Cutaways & Clipping</h3>
+        <div class="checkbox-group">
+          <label><input type="checkbox" id="clipPlaneToggle"> Enable Clipping Plane</label>
+        </div>
+        <div class="form-group mt-1" id="clipPlaneGroup" style="display: none;">
+          <div class="slider-header"><label>Clip Depth (d):</label><span id="clipDVal">0.0</span></div>
+          <input type="range" id="clipDSlider" min="-0.8" max="0.8" step="0.02" value="0.0">
+        </div>
+        <div class="checkbox-group mt-1">
+          <label><input type="checkbox" id="wedgeCutToggle"> Drebin 3D Wedge Cutaway</label>
+        </div>
+      </section>
+
+      <!-- Lighting & Shading -->
+      <section class="card">
+        <h3 class="card-title">Blinn-Phong Illumination</h3>
+        <div class="form-group">
+          <div class="slider-header"><label>Diffuse (kd):</label><span id="kdVal">0.65</span></div>
+          <input type="range" id="kdSlider" min="0.1" max="1.0" step="0.05" value="0.65">
+        </div>
+        <div class="form-group">
+          <div class="slider-header"><label>Specular (ks):</label><span id="ksVal">0.35</span></div>
+          <input type="range" id="ksSlider" min="0.0" max="1.0" step="0.05" value="0.35">
+        </div>
+        <div class="form-group">
+          <div class="slider-header"><label>Shininess (n):</label><span id="shineVal">30</span></div>
+          <input type="range" id="shineSlider" min="5" max="100" step="5" value="30">
+        </div>
+      </section>
+    </aside>
+
+    <!-- Center & Right: Main Screen Area -->
+    <section class="viewports">
+      <!-- Direct Volume Render (Live Raycast) Viewport -->
+      <div class="viewport-card render-card">
+        <div class="viewport-header">
+          <div class="viewport-title-group">
+            <h4>Direct Volume Raycast</h4>
+            <span class="viewport-subtitle">Real-time Raycasting Engine</span>
+          </div>
+          <div class="viewport-actions">
+            <span class="interaction-hint">Left-drag: Orbit | Right-drag / Scroll: Zoom</span>
+            <button class="btn btn-secondary btn-sm" id="btnResetCamera">Reset Camera</button>
+          </div>
+        </div>
+
+        <div class="canvas-container" id="canvasContainer">
+          <img id="renderView" alt="3D Volume Rendering Output" src="">
+          <div class="canvas-overlay" id="loadingSpinner">Rendering...</div>
+        </div>
+
+        <div class="camera-info" id="camInfo">
+          Azimuth: 45° | Elevation: 25° | Distance: 2.50
+        </div>
+      </div>
+
+      <!-- 2D Multi-Planar Orthogonal Slices Viewport -->
+      <div class="viewport-card slice-card">
+        <div class="viewport-header">
+          <div class="viewport-title-group">
+            <h4>Multi-Planar Orthogonal Slices</h4>
+            <span class="slice-axis-badge" id="sliceAxisBadge">AXIAL PLANE (Z-axis)</span>
+          </div>
+          <div class="slice-tabs">
+            <button class="btn btn-sm btn-slice active" data-axis="axial">Axial</button>
+            <button class="btn btn-sm btn-slice" data-axis="coronal">Coronal</button>
+            <button class="btn btn-sm btn-slice" data-axis="sagittal">Sagittal</button>
+          </div>
+        </div>
+
+        <div class="slice-view-container">
+          <div class="slice-view-box">
+            <img id="sliceView" alt="2D Orthogonal Slice" src="">
+          </div>
+          <div class="slice-controls-panel">
+            <div class="slider-header">
+              <label>Slice Position:</label>
+              <span id="slicePosText">70 / 140</span>
+            </div>
+            <input type="range" id="sliceSlider" min="0" max="100" value="50">
+            <p class="slice-hint">Drag slider to scrub through the 2D cross-sectional slices.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Dataset Details Modal Popup -->
+  <div class="modal-backdrop hidden" id="datasetModal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <span class="modal-tag" id="provKeyBadge">BRAIN_MRI</span>
+          <h3 id="provTitle">Clinical Human Brain MRI (T1-weighted)</h3>
+        </div>
+        <button class="modal-close" id="btnModalClose" title="Close (Esc)">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="modal-grid">
+          <div class="modal-prop">
+            <span class="prop-label">Subject Scanned</span>
+            <span class="prop-val" id="provSubject">Adult Human Neuroanatomy (Healthy Volunteer)</span>
+          </div>
+          <div class="modal-prop">
+            <span class="prop-label">Acquisition & Source</span>
+            <span class="prop-val" id="provCreator">Chris Rorden / Neurolabusc / NIH Benchmark (SPM12 / OASIS)</span>
+          </div>
+          <div class="modal-prop">
+            <span class="prop-label">Imaging Modality</span>
+            <span class="prop-val" id="provModality">3.0 Tesla MRI (T1-weighted 3D MPRAGE)</span>
+          </div>
+          <div class="modal-prop">
+            <span class="prop-label">Voxel Matrix & Resolution</span>
+            <span class="prop-val" id="provShape">140 x 160 x 124 voxels (1.00 mm isotropic)</span>
+          </div>
+        </div>
+
+        <div class="modal-section">
+          <span class="prop-label">Key Anatomical & Structural Features</span>
+          <p class="prop-text" id="provStructures">
+            Cerebral cortex, sulci & gyri, corpus callosum, lateral ventricles, cerebellum, and brainstem.
+          </p>
+        </div>
+
+        <div class="modal-section">
+          <span class="prop-label">Role in Volume Rendering Literature</span>
+          <p class="prop-text" id="provSignificance">
+            Demonstrates Levoy (1988) continuous isosurface display for separating brain soft tissue from ventricular fluid without polygonal mesh extraction.
+          </p>
+        </div>
+
+        <div class="modal-recommendation">
+          <span class="rec-label">Recommended Pipeline:</span>
+          <span class="rec-value" id="provRecommended">Levoy (1988) Isosurface Display</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

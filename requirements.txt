@@ -1,0 +1,23 @@
+# ==============================================================================
+# IS F311 Computer Graphics: 3D Direct Volume Rendering & Surface Display Engine
+# Core Dependencies
+# ==============================================================================
+
+# Numerical Computation & JIT Compilation
+numpy>=1.24.0
+scipy>=1.10.0
+numba>=0.58.0
+
+# Scientific Visualization & Image Processing
+pillow>=9.5.0
+matplotlib>=3.7.0
+
+# Modern Web Dashboard Backend (FastAPI + Uvicorn)
+fastapi>=0.100.0
+uvicorn[standard]>=0.22.0
+pydantic>=2.0.0
+httpx>=0.24.0
+
+# Paper & Document Extraction (Optional / Utility)
+pypdf>=3.9.0
+python-docx>=0.8.11
